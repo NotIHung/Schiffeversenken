@@ -179,10 +179,10 @@ function Board({ title, board, own, onFire, disabled }) {
           <div className="axis">{r+1}</div>
           {row.map((cell, c) => {
             const type = cell?.hit ? 'hit' : cell?.miss ? 'miss' : cell?.ship ? 'ship' : ''
-            return <button key={c} className={`cell ${type} ${disabled ? 'disabled' : ''}`}
+            return <button key={c} className={`cell ${type} ${disabled ? 'disabled' : '•'}`}
               disabled={!onFire || disabled || cell?.hit || cell?.miss}
               onClick={() => onFire?.(r, c)}>
-              {cell?.hit ? '✦' : cell?.miss ? '•' : ''}
+              {cell?.hit ? '✦' : cell?.miss ? '•' : '•'}
             </button>
           })}
         </React.Fragment>)}
