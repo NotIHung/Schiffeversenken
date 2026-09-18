@@ -9,6 +9,7 @@ const SHIPS = [
 ]
 
 const emptyBoard = () => Array.from({ length: 10 }, () => Array(10).fill(null))
+const generated = Math.random().toString(36).slice(2, 7).toUpperCase()
 
 function App() {
   const [screen, setScreen] = useState('home')
@@ -50,7 +51,6 @@ function App() {
   }
 
   const createRoom = () => {
-    const generated = Math.random().toString(36).slice(2, 7).toUpperCase()
     setRoomInput(generated)
     setScreen('join')
   }
@@ -129,6 +129,7 @@ function App() {
 
       <section className="game-head">
         <div>
+          <div className="eyebrow">Servercode:{generated}</div>
           <div className="eyebrow">MULTIPLAYER</div>
           <h2>{status}</h2>
           <p>{message}</p>
