@@ -90,14 +90,18 @@ function App() {
     return state.winner === state.me ? '🎉 Du hast gewonnen!' : '💥 Du hast verloren.'
   }, [state])
 
+  const code = () => {
+    setRoomInput(e.target.value.toUpperCase());
+    generated = e.target.value.toUpperCase();
+  }
+
   if (screen === 'home') return (
     <main className="app home">
       <div className="hero">
         <div className="ship-icon">⚓</div>
         <h1>Schiffe<br /><span>Versenken</span></h1>
         <p>Das klassische Duell – direkt im Browser.</p>
-        <button className="primary" onClick={createRoom}>Neues Spiel</button>
-        <button className="secondary" onClick={() => setScreen('join')}>Raum beitreten</button>
+        <button className="secondary" onClick={() => setScreen('join')}>Spielen</button>
       </div>
     </main>
   )
@@ -112,7 +116,7 @@ function App() {
         <input value={name} maxLength={18} onChange={e => setName(e.target.value)} placeholder="Spieler" />
         <label>Raumcode</label>
         <input className="code-input" value={roomInput} maxLength={5}
-          onChange={e => setRoomInput(e.target.value.toUpperCase())} placeholder="ABCDE" />
+          onChange={e => code(e)} placeholder="ABCDE" />
         <button className="primary" onClick={joinRoom}>Beitreten</button>
         <div className="hint">{message}</div>
       </section>
