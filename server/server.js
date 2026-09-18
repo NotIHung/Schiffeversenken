@@ -146,7 +146,6 @@ wss.on('connection',(ws,req)=>{
         const sunk=ship.hits.length===ship.size
         const allSunk=enemy.ships.every(s=>s.hits.length===s.size)
         if(allSunk){room.phase='finished';room.winner=room.players.indexOf(player);broadcast(room,'Alle gegnerischen Schiffe sind versenkt!');return}
-        room.turn=room.players.indexOf(enemy)
         broadcast(room,sunk?`${player.name} hat ein ${ship.name} versenkt!`:`Treffer!`)
       }else{
         if(!cell) enemy.board[r][c]={miss:true}
