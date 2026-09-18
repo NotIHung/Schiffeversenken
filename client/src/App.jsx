@@ -9,7 +9,7 @@ const SHIPS = [
 ]
 
 const emptyBoard = () => Array.from({ length: 10 }, () => Array(10).fill(null))
-const generateRoomCode = () => Math.random().toString(36).slice(2, 7).toUpperCase()
+const generated = Math.random().toString(36).slice(2, 7).toUpperCase()
 
 function App() {
   const [screen, setScreen] = useState('home')
@@ -51,9 +51,7 @@ function App() {
   }
 
   const createRoom = () => {
-    const code = generateRoomCode()
-    setRoomInput(code)
-    setRoom(code)
+    setRoomInput(generated)
     setScreen('join')
   }
 
@@ -92,11 +90,6 @@ function App() {
     return state.winner === state.me ? '🎉 Du hast gewonnen!' : '💥 Du hast verloren.'
   }, [state])
 
-  const code = (e) => {
-    setRoomInput(e.target.value.toUpperCase());
-    generated = e.target.value.toUpperCase();
-  }
-
   if (screen === 'home') return (
     <main className="app home">
       <div className="hero">
@@ -118,7 +111,7 @@ function App() {
         <input value={name} maxLength={18} onChange={e => setName(e.target.value)} placeholder="Spieler" />
         <label>Raumcode</label>
         <input className="code-input" value={roomInput} maxLength={5}
-          onChange={e => code(e)} placeholder="ABCDE" />
+          onChange={e => setRoomInput(e.target.value.toUpperCase())} placeholder="ABCDE" />
         <button className="primary" onClick={joinRoom}>Beitreten</button>
         <div className="hint">{message}</div>
       </section>
@@ -135,7 +128,6 @@ function App() {
 
       <section className="game-head">
         <div>
-          <div className="eyebrow">Lobbycode:{room || roomInput || '—'}</div>
           <div className="eyebrow">MULTIPLAYER</div>
           <h2>{status}</h2>
           <p>{message}</p>
