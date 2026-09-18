@@ -46,9 +46,14 @@ function makePlayer(ws,name) {
 
 function publicState(room, player) {
   const enemy = room.players.find(p=>p!==player)
-  const myBoard = player.board.map(row=>row.map(cell=>cell ? {
-    ship:true, hit:cell.hit===true
-  } : null))
+  const myBoard = player.board.map(row=>row.map(cell=>{
+    if (!cell) return null
+    return {
+      ship: !!cell.shipId,
+      hit: cell.hit === true,
+      miss: cell.miss === true
+    }
+  }))
   const enemyBoard = enemy ? enemy.board.map(row=>row.map(cell=>{
     if (!cell) return null
     return { hit:cell.hit===true, miss:cell.miss===true }
