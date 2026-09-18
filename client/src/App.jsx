@@ -90,7 +90,7 @@ function App() {
     return state.winner === state.me ? '🎉 Du hast gewonnen!' : '💥 Du hast verloren.'
   }, [state])
 
-  const code = () => {
+  const code = (e) => {
     setRoomInput(e.target.value.toUpperCase());
     generated = e.target.value.toUpperCase();
   }
