@@ -50,6 +50,7 @@ function publicState(room, player) {
     if (!cell) return null
     return {
       ship: !!cell.shipId,
+      shipId: cell.shipId || null,
       hit: cell.hit === true,
       miss: cell.miss === true
     }
@@ -66,7 +67,7 @@ function publicState(room, player) {
     ready: player.ready,
     myBoard,
     enemyBoard,
-    myShips: player.ships.map(s=>({name:s.name,size:s.size,sunk:s.hits.length===s.size}))
+    myShips: player.ships.map(s=>({id:s.id,name:s.name,size:s.size,sunk:s.hits.length===s.size}))
   }
 }
 
@@ -130,6 +131,16 @@ wss.on('connection',(ws,req)=>{
       player.ready=true
       startIfReady(room)
       if(room.phase==='placement') broadcast(room,`${player.name} ist bereit.`)
+    }
+
+    if(msg.type==='randomize'){
+      if(room.phase!=='placement') return
+      const fleet = randomFleet()
+      player.board = fleet.board
+      player.ships = fleet.ships
+      player.ready = false
+      broadcast(room, `${player.name} hat die Flotte neu positioniert.`)
+      return
     }
 
     if(msg.type==='fire'){
