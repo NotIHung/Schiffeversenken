@@ -1,4 +1,3 @@
-//test
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 const SHIPS = [
@@ -8,6 +7,8 @@ const SHIPS = [
   { name: 'Zerstörer', size: 2 },
   { name: 'Patrouillenboot', size: 2 },
 ]
+
+const SHIP_COLORS = ['#50b9e7','#ff8a65','#9ccc65','#ffd54f','#b39ddb']
 
 const emptyBoard = () => Array.from({ length: 10 }, () => Array(10).fill(null))
 const generated = Math.random().toString(36).slice(2, 7).toUpperCase()
@@ -83,6 +84,14 @@ function App() {
   const board = state?.myBoard || emptyBoard()
   const enemy = state?.enemyBoard || emptyBoard()
 
+  const shipColorMap = useMemo(()=>{
+    const map = {}
+    (state?.myShips||[]).forEach((s,i)=>{
+      map[s.id] = SHIP_COLORS[i % SHIP_COLORS.length]
+    })
+    return map
+  },[state?.myShips])
+
   const status = useMemo(() => {
     if (!state) return ''
     if (state.phase === 'waiting') return 'Warte auf den zweiten Spieler …'
@@ -133,20 +142,28 @@ function App() {
           <h2>{status}</h2>
           <p>{message}</p>
         </div>
-        <button className="primary small" onClick={ready}
-          disabled={!state || state.phase !== 'placement' || state.ready}>
-          {state?.ready ? 'Bereit ✓' : 'Flotte bestätigen'}
-        </button>
+        <div style={{display:'flex',gap:10}}>
+          <button className="secondary small" onClick={()=>send({type:'randomize'})}
+            disabled={!state || state.phase !== 'placement' || state.ready}>
+            Flotte randomisieren
+          </button>
+          <button className="primary small" onClick={ready}
+            disabled={!state || state.phase !== 'placement' || state.ready}>
+            {state?.ready ? 'Bereit ✓' : 'Flotte bestätigen'}
+          </button>
+        </div>
       </section>
 
       <div className="boards">
-        <Board title="Deine Flotte" board={board} own />
+        <Board title="Deine Flotte" board={board} own myShips={state?.myShips} shipColorMap={shipColorMap} />
         <Board title="Gegnerisches Meer" board={enemy} onFire={fire}
           disabled={state?.turn !== state?.me || state?.phase !== 'playing'} />
       </div>
 
       <section className="legend">
-        <span><i className="ship"></i> Schiff</span>
+        {(state?.myShips || SHIPS).map((s,idx)=>(
+          <span key={s.id||s.name}><i className="ship-swatch" style={{background: shipColorMap[s.id] || SHIP_COLORS[idx % SHIP_COLORS.length]}}></i> {s.name}</span>
+        ))}
         <span><i className="miss"></i> Fehlschuss</span>
         <span><i className="hit"></i> Treffer</span>
         <span>Flotte: {state?.myShips?.filter(s => s.sunk).length || 0}/{SHIPS.length} versenkt</span>
@@ -167,7 +184,7 @@ function App() {
   )
 }
 
-function Board({ title, board, own, onFire, disabled }) {
+function Board({ title, board, own, onFire, disabled, shipColorMap }) {
   return (
     <section className="board-wrap">
       <div className="board-title">{title}</div>
@@ -177,8 +194,11 @@ function Board({ title, board, own, onFire, disabled }) {
         {board.map((row, r) => <React.Fragment key={r}>
           <div className="axis">{r+1}</div>
           {row.map((cell, c) => {
-            const type = cell?.hit ? 'hit' : cell?.miss ? 'miss' : cell?.ship ? 'ship' : ''
+            const shipId = cell?.shipId || (cell?.ship ? 'unknown' : null)
+            const type = cell?.hit ? 'hit' : cell?.miss ? 'miss' : shipId ? 'ship' : ''
+            const style = own && shipId ? { background: shipColorMap?.[shipId] } : undefined
             return <button key={c} className={`cell ${type} ${disabled ? 'disabled' : ''}`}
+              style={style}
               disabled={!onFire || disabled || cell?.hit || cell?.miss}
               onClick={() => onFire?.(r, c)}>
               {cell?.hit ? '✦' : cell?.miss ? '•' : ''}
