@@ -8,7 +8,7 @@ const SHIPS = [
   { name: 'Patrouillenboot', size: 2 },
 ]
 
-const SHIP_COLORS = ['#50b9e7','#ff8a65','#9ccc65','#ffd54f','#b39ddb']
+const SHIP_COLORS = ['#50b9e7','#ff8a65','#9ccc65','#ffd54f','#b39ddb', '#4db6ac','#f06292','#ba68c8','#81c784','#ffb74d']
 
 const emptyBoard = () => Array.from({ length: 10 }, () => Array(10).fill(null))
 const generated = Math.random().toString(36).slice(2, 7).toUpperCase()
@@ -22,6 +22,7 @@ function App() {
   const [state, setState] = useState(null)
   const [connected, setConnected] = useState(false)
   const ws = useRef(null)
+  const [modal, setModal] = useState(null)
 
   const connect = () => {
     const url = import.meta.env.VITE_WS_URL ||
@@ -86,11 +87,19 @@ function App() {
 
   const shipColorMap = useMemo(()=>{
     const map = {}
-    (state?.myShips||[]).forEach((s,i)=>{
-      map[s.id] = SHIP_COLORS[i % SHIP_COLORS.length]
+    const ships = Array.isArray(state?.myShips) ? state.myShips : []
+    ships.forEach((s,i)=>{
+      const key = s?.id || s?.name || `ship-${i}`
+      map[key] = SHIP_COLORS[i % SHIP_COLORS.length]
     })
     return map
   },[state?.myShips])
+
+  const sunkSet = useMemo(() => {
+    const set = new Set()
+    if (Array.isArray(state?.myShips)) state.myShips.forEach(s => s?.sunk && s.id && set.add(s.id))
+    return set
+  }, [state?.myShips])
 
   const status = useMemo(() => {
     if (!state) return ''
@@ -99,6 +108,22 @@ function App() {
     if (state.phase === 'playing') return state.turn === state.me ? 'Du bist am Zug!' : 'Gegner ist am Zug …'
     return state.winner === state.me ? '🎉 Du hast gewonnen!' : '💥 Du hast verloren.'
   }, [state])
+
+  const myPoints = state?.myPoints ?? 0
+  const enemyPoints = state?.enemyPoints ?? 0
+
+  const canUse = (cost) => state && state.phase === 'playing' && state.turn === state.me && (myPoints >= cost)
+
+  // Modal helpers: setModal({type, props})
+  const openConfirm = (message, onConfirm) => setModal({ type: 'confirm', message, onConfirm })
+  const openCoords = (onConfirm, defaults = { r: 0, c: 0 }) => setModal({ type: 'coords', onConfirm, defaults })
+  const openIndex = (dir, onConfirm, def = 0) => setModal({ type: 'index', dir, onConfirm, def })
+
+  const useRandom5 = () => openConfirm('5 zufällige Schüsse für 5 Punkte ausführen?', () => send({ type: 'ability', ability: 'random5' }))
+  const useBlock2 = () => openCoords(({ r, c }) => send({ type: 'ability', ability: 'block2', r, c }))
+  const useRow = () => openIndex('row', (idx) => send({ type: 'ability', ability: 'rowcol', dir: 'row', idx }))
+  const useCol = () => openIndex('col', (idx) => send({ type: 'ability', ability: 'rowcol', dir: 'col', idx }))
+  const useNuke = () => openConfirm('Nuke für 50 Punkte einsetzen? Das trifft das ganze Feld.', () => send({ type: 'ability', ability: 'nuke' }))
 
   if (screen === 'home') return (
     <main className="app home">
@@ -138,9 +163,7 @@ function App() {
 
       <section className="game-head">
         <div>
-          <div className="eyebrow">MULTIPLAYER</div>
           <h2>{status}</h2>
-          <p>{message}</p>
         </div>
         <div style={{display:'flex',gap:10}}>
           <button className="secondary small" onClick={()=>send({type:'randomize'})}
@@ -153,20 +176,28 @@ function App() {
           </button>
         </div>
       </section>
+      <div className="boards-wrap">
+        <div className="boards">
+          <Board title="Deine Flotte" board={board} own myShips={state?.myShips} shipColorMap={shipColorMap} sunkSet={sunkSet} />
+          <Board title="Gegnerisches Meer" board={enemy} onFire={fire}
+            disabled={state?.turn !== state?.me || state?.phase !== 'playing'} />
+        </div>
 
-      <div className="boards">
-        <Board title="Deine Flotte" board={board} own myShips={state?.myShips} shipColorMap={shipColorMap} />
-        <Board title="Gegnerisches Meer" board={enemy} onFire={fire}
-          disabled={state?.turn !== state?.me || state?.phase !== 'playing'} />
+        <section className="scorebar">
+          <div className="points left">Punkte: {myPoints}</div>
+          <div className="points right">Gegner: {enemyPoints}</div>
+        </section>
       </div>
 
-      <section className="legend">
-        {(state?.myShips || SHIPS).map((s,idx)=>(
-          <span key={s.id||s.name}><i className="ship-swatch" style={{background: shipColorMap[s.id] || SHIP_COLORS[idx % SHIP_COLORS.length]}}></i> {s.name}</span>
-        ))}
-        <span><i className="miss"></i> Fehlschuss</span>
-        <span><i className="hit"></i> Treffer</span>
-        <span>Flotte: {state?.myShips?.filter(s => s.sunk).length || 0}/{SHIPS.length} versenkt</span>
+      <section className="abilities">
+        <div className="ability-row">
+          <button className="secondary" onClick={useRandom5} disabled={!canUse(5)}>5 Zufalls-Schüsse (5)</button>
+          <button className="secondary" onClick={useBlock2} disabled={!canUse(5)}>2x2 Schuss (5)</button>
+          <button className="secondary" onClick={useRow} disabled={!canUse(10)}>Reihe (10)</button>
+          <button className="secondary" onClick={useCol} disabled={!canUse(10)}>Spalte (10)</button>
+          <button className="secondary" onClick={useNuke} disabled={!canUse(50)}>Nuke (50)</button>
+        </div>
+        <div className="hint">{message}</div>
       </section>
 
       {state?.phase === 'finished' && (
@@ -180,28 +211,53 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Modal overlay for inputs and confirmations */}
+      {modal && (
+        <div className="modal-overlay">
+          <div className="modal-card card">
+            {modal.type === 'confirm' && (
+              <>
+                <p style={{marginBottom:18}}>{modal.message}</p>
+                <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+                  <button className="primary" onClick={() => { modal.onConfirm(); setModal(null) }}>Bestätigen</button>
+                  <button className="secondary" onClick={() => setModal(null)}>Abbrechen</button>
+                </div>
+              </>
+            )}
+            {modal.type === 'coords' && (
+              <CoordsForm defaults={modal.defaults} onCancel={() => setModal(null)} onConfirm={(r,c)=>{ modal.onConfirm({r,c}); setModal(null) }} />
+            )}
+            {modal.type === 'index' && (
+              <IndexForm dir={modal.dir} def={modal.def} onCancel={() => setModal(null)} onConfirm={(idx)=>{ modal.onConfirm(idx); setModal(null) }} />
+            )}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
 
-function Board({ title, board, own, onFire, disabled, shipColorMap }) {
+function Board({ title, board, own, onFire, disabled, shipColorMap, sunkSet }) {
   return (
     <section className="board-wrap">
       <div className="board-title">{title}</div>
       <div className="board">
         <div className="corner"></div>
-        {Array.from({ length: 10 }, (_, i) => <div className="axis" key={'x'+i}>{String.fromCharCode(65+i)}</div>)}
+        {Array.from({ length: 10 }, (_, i) => <div className="axis" key={'x'+i}>{i+1}</div>)}
         {board.map((row, r) => <React.Fragment key={r}>
           <div className="axis">{r+1}</div>
           {row.map((cell, c) => {
             const shipId = cell?.shipId || (cell?.ship ? 'unknown' : null)
-            const type = cell?.hit ? 'hit' : cell?.miss ? 'miss' : shipId ? 'ship' : ''
-            const style = own && shipId ? { background: shipColorMap?.[shipId] } : undefined
+            const cellSunk = cell?.sunk === true
+            const isSunk = cellSunk || (shipId && sunkSet?.has?.(shipId))
+            const type = isSunk ? 'sunk' : (cell?.hit ? 'hit' : cell?.miss ? 'miss' : shipId ? 'ship' : '')
+            const style = (own && shipId && !isSunk) ? { background: shipColorMap?.[shipId] || undefined } : undefined
             return <button key={c} className={`cell ${type} ${disabled ? 'disabled' : ''}`}
               style={style}
               disabled={!onFire || disabled || cell?.hit || cell?.miss}
               onClick={() => onFire?.(r, c)}>
-              {cell?.hit ? '✦' : cell?.miss ? '•' : ''}
+              {isSunk ? '✦' : (cell?.hit ? '' : cell?.miss ? '•' : '')}
             </button>
           })}
         </React.Fragment>)}
@@ -211,3 +267,35 @@ function Board({ title, board, own, onFire, disabled, shipColorMap }) {
 }
 
 export default App
+
+function CoordsForm({ defaults, onCancel, onConfirm }){
+  const [r, setR] = useState(defaults.r || 0)
+  const [c, setC] = useState(defaults.c || 0)
+  return (
+    <div>
+      <label style={{textTransform:'uppercase',fontSize:12,letterSpacing:'.12em'}}>Oben-links Koordinate</label>
+      <div style={{display:'flex',gap:8,marginTop:8}}>
+        <input type="number" min={0} max={9} value={r} onChange={e=>setR(Number(e.target.value))} />
+        <input type="number" min={0} max={9} value={c} onChange={e=>setC(Number(e.target.value))} />
+      </div>
+      <div style={{display:'flex',gap:10,justifyContent:'center',marginTop:14}}>
+        <button className="primary" onClick={()=> onConfirm(r,c)}>Bestätigen</button>
+        <button className="secondary" onClick={onCancel}>Abbrechen</button>
+      </div>
+    </div>
+  )
+}
+
+function IndexForm({ dir, def, onCancel, onConfirm }){
+  const [idx, setIdx] = useState(def || 0)
+  return (
+    <div>
+      <label style={{textTransform:'uppercase',fontSize:12,letterSpacing:'.12em'}}>{dir === 'row' ? 'Zeile' : 'Spalte'} (1-10)</label>
+      <input type="number" min={1} max={10} value={idx} onChange={e=>setIdx(Number(e.target.value))} style={{marginTop:8}} />
+      <div style={{display:'flex',gap:10,justifyContent:'center',marginTop:14}}>
+        <button className="primary" onClick={()=> onConfirm(idx-1)}>Bestätigen</button>
+        <button className="secondary" onClick={onCancel}>Abbrechen</button>
+      </div>
+    </div>
+  )
+}
