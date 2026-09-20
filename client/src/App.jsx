@@ -10,6 +10,17 @@ const SHIPS = [
 
 const SHIP_COLORS = ['#50b9e7','#ff8a65','#9ccc65','#ffd54f','#b39ddb', '#4db6ac','#f06292','#ba68c8','#81c784','#ffb74d']
 
+const getShipColor = (shipId, shipColorMap = {}) => {
+  if (!shipId) return undefined
+  if (shipColorMap[shipId]) return shipColorMap[shipId]
+  let hash = 0
+  for (const char of String(shipId)) {
+    hash = (hash << 5) - hash + char.charCodeAt(0)
+    hash |= 0
+  }
+  return SHIP_COLORS[Math.abs(hash) % SHIP_COLORS.length]
+}
+
 const emptyBoard = () => Array.from({ length: 10 }, () => Array(10).fill(null))
 const generated = Math.random().toString(36).slice(2, 7).toUpperCase()
 
@@ -112,6 +123,20 @@ function App() {
   const myPoints = state?.myPoints ?? 0
   const enemyPoints = state?.enemyPoints ?? 0
 
+  const shipLegend = useMemo(() => {
+    const counts = new Map()
+    if (Array.isArray(state?.myShips)) {
+      state.myShips.forEach(ship => {
+        const key = Number(ship?.size) || 1
+        counts.set(key, (counts.get(key) || 0) + 1)
+      })
+    }
+    return Array.from(counts.entries()).map(([size, count]) => ({
+      size,
+      count
+    })).sort((a, b) => b.size - a.size)
+  }, [state?.myShips])
+
   const canUse = (cost) => state && state.phase === 'playing' && state.turn === state.me && (myPoints >= cost)
 
   // Modal helpers: setModal({type, props})
@@ -189,6 +214,21 @@ function App() {
         </section>
       </div>
 
+      <section className="fleet-legend">
+        <div className="legend-list">
+          {shipLegend.length ? shipLegend.map(item => (
+            <div key={item.size} className="legend-item">
+              <span className="legend-ship" style={{ width: `${item.size * 14 + (item.size+2) * 4}px` }}>
+                {Array.from({ length: item.size }, (_, i) => (
+                  <span key={i} className="legend-ship-segment" />
+                ))}
+              </span>
+              <strong>{item.count}x</strong>
+            </div>
+          )) : <div className="legend-item"><span>Keine Schiffe vorhanden</span></div>}
+        </div>
+      </section>
+
       <section className="abilities">
         <div className="ability-row">
           <button className="secondary" onClick={useRandom5} disabled={!canUse(5)}>5 Zufalls-Schüsse (5)</button>
@@ -244,15 +284,16 @@ function Board({ title, board, own, onFire, disabled, shipColorMap, sunkSet }) {
       <div className="board-title">{title}</div>
       <div className="board">
         <div className="corner"></div>
-        {Array.from({ length: 10 }, (_, i) => <div className="axis" key={'x'+i}>{i+1}</div>)}
+        {Array.from({ length: 10 }, (_, i) => <div className="axis" key={'x'+i}></div>)}
         {board.map((row, r) => <React.Fragment key={r}>
           <div className="axis">{r+1}</div>
           {row.map((cell, c) => {
             const shipId = cell?.shipId || (cell?.ship ? 'unknown' : null)
             const cellSunk = cell?.sunk === true
             const isSunk = cellSunk || (shipId && sunkSet?.has?.(shipId))
-            const type = isSunk ? 'sunk' : (cell?.hit ? 'hit' : cell?.miss ? 'miss' : shipId ? 'ship' : '')
-            const style = (own && shipId && !isSunk) ? { background: shipColorMap?.[shipId] || undefined } : undefined
+            const shipColor = shipId ? getShipColor(shipId, shipColorMap) : undefined
+            const type = (!own && isSunk && shipId) ? 'ship' : (isSunk ? 'sunk' : (cell?.hit ? 'hit' : cell?.miss ? 'miss' : shipId ? 'ship' : ''))
+            const style = shipColor && ((!own && isSunk) || (own && shipId && !isSunk)) ? { background: shipColor } : undefined
             return <button key={c} className={`cell ${type} ${disabled ? 'disabled' : ''}`}
               style={style}
               disabled={!onFire || disabled || cell?.hit || cell?.miss}
@@ -261,6 +302,8 @@ function Board({ title, board, own, onFire, disabled, shipColorMap, sunkSet }) {
             </button>
           })}
         </React.Fragment>)}
+        <div className="corner"></div>
+        {Array.from({ length: 10 }, (_, i) => <div className="axis" key={'bottom-'+i}>{i+1}</div>)}
       </div>
     </section>
   )
@@ -275,11 +318,11 @@ function CoordsForm({ defaults, onCancel, onConfirm }){
     <div>
       <label style={{textTransform:'uppercase',fontSize:12,letterSpacing:'.12em'}}>Oben-links Koordinate</label>
       <div style={{display:'flex',gap:8,marginTop:8}}>
-        <input type="number" min={0} max={9} value={r} onChange={e=>setR(Number(e.target.value))} />
-        <input type="number" min={0} max={9} value={c} onChange={e=>setC(Number(e.target.value))} />
+        <input type="number" min={1} max={10} value={r} onChange={e=>setR(Number(e.target.value))} />
+        <input type="number" min={1} max={10} value={c} onChange={e=>setC(Number(e.target.value))} />
       </div>
       <div style={{display:'flex',gap:10,justifyContent:'center',marginTop:14}}>
-        <button className="primary" onClick={()=> onConfirm(r,c)}>Bestätigen</button>
+        <button className="primary" onClick={()=> onConfirm(c-1,r-1)}>Bestätigen</button>
         <button className="secondary" onClick={onCancel}>Abbrechen</button>
       </div>
     </div>
